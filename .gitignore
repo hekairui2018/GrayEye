@@ -1,0 +1,26 @@
+# Runtime bindings, credentials and all captured customer/device data stay local.
+target.json
+settings.json
+machine_id.txt
+.env*
+*.json
+!settings.example.json
+!target.example.json
+*.exe
+*.zip
+*.bin
+*.pcap
+*.ssr
+*.log
+*.receipt
+*.tmp
+bin/
+obj/
+work/
+runs/
+tasks/
+logs/
+source-backups/
+# Superseded local-only drafts are not part of the public source.
+飞书接收端对接提示词.md
+使用说明.txt
