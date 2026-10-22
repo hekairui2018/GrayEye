@@ -19,9 +19,9 @@ using System.IO.Compression;
 using System.Reflection;
 
 [assembly:AssemblyTitle("灰eye A6L只读采集助手")]
-[assembly:AssemblyVersion("0.2.2.0")]
-[assembly:AssemblyFileVersion("0.2.2.1022")]
-[assembly:AssemblyInformationalVersion("0.2.2-test.20261022")]
+[assembly:AssemblyVersion("0.2.3.0")]
+[assembly:AssemblyFileVersion("0.2.3.1022")]
+[assembly:AssemblyInformationalVersion("0.2.3-test.20261022")]
 
 static class Store {
  public static readonly string Root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"A6LCollector");
@@ -90,7 +90,7 @@ sealed class Ball:Form {
  void Notice(string text){Store.Log(text);if(state!=null&&!state.IsDisposed)state.Text=text;tray.BalloonTipTitle="A6L采集助手";tray.BalloonTipText=text.Length>220?text.Substring(0,220):text;tray.ShowBalloonTip(5000);}
  void Run(){RunTask(false);}
  void Stop(){if(cancellation!=null){cancellation.Cancel();Notice("已请求人工停止，正在保留本次已收数据");}else Notice("当前没有正在执行的硬件采集");}
- async void RunTask(bool retry){if(busy){Notice("正在处理，请等待本次完成");return;}busy=true;cancellation=new CancellationTokenSource();bool completed=false;try{var op=retry?TaskOperation.RetryLatest():TaskOperation.New();await Task.Run(()=>TaskRunner.Execute(op,s=>BeginInvoke((Action)(()=>tip.SetToolTip(this,s))),cancellation.Token));completed=true;Notice("采集完成：11段及133字段已本地保存。task="+op.RunId);}catch(Exception ex){Notice(ex.Message);}finally{cancellation.Dispose();cancellation=null;busy=false;tip.SetToolTip(this,"单击新任务；右键重试 / 停止 / admin / send");}if(closing){Close();return;}if(Upload.Auto()){Notice((completed?"采集已完成。":"本次采集未完成。")+"正在补传任务事件，上传状态单独显示");Send();}}
+ async void RunTask(bool retry){if(busy){Notice("正在处理，请等待本次完成");return;}busy=true;cancellation=new CancellationTokenSource();bool completed=false;try{var op=retry?TaskOperation.RetryLatest():TaskOperation.New();await Task.Run(()=>TaskRunner.Execute(op,s=>BeginInvoke((Action)(()=>tip.SetToolTip(this,s))),cancellation.Token));completed=true;Notice("采集完成：11段及133字段已本地保存。task="+op.RunId);}catch(Exception ex){Store.Log(ex.ToString());Notice(ex.Message);}finally{cancellation.Dispose();cancellation=null;busy=false;tip.SetToolTip(this,"单击新任务；右键重试 / 停止 / admin / send");}if(closing){Close();return;}if(Upload.Auto()){Notice((completed?"采集已完成。":"本次采集未完成。")+"正在补传任务事件，上传状态单独显示");Send();}}
  async void Send(){if(busy){Notice("正在处理，请等待");return;}busy=true;try{Notice(await Task.Run(()=>Upload.Pending()));}catch(Exception ex){Notice("回传失败（不改变采集结果）："+ex.Message);}finally{busy=false;if(closing)Close();}}
  void Export(){try{var date=DateTime.Now.ToString("yyyyMMdd");string source=Path.Combine(Store.Root,"logs",date+".log");string desktop=Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);string zip=Path.Combine(desktop,"A6L采集助手日志_"+DateTime.Now.ToString("yyyyMMdd_HHmmssfff")+".zip");using(var archive=ZipFile.Open(zip,ZipArchiveMode.Create))archive.CreateEntryFromFile(source,date+".log");var files=new System.Collections.Specialized.StringCollection();files.Add(zip);Clipboard.SetFileDropList(files);Notice("日志副本已导出桌面并复制到剪贴板："+zip);}catch(Exception ex){Notice("导出失败："+ex.Message);}}
  void Admin(){var f=new Form{Text="灰eye admin "+TaskOperation.Version,Size=new Size(600,340),StartPosition=FormStartPosition.CenterScreen,Icon=Icon};var flow=new FlowLayoutPanel{Dock=DockStyle.Top,Height=135,Padding=new Padding(12)};Action<string,Action> button=(label,action)=>{var b=new Button{Text=label,AutoSize=true,Height=32};b.Click+=(s,e)=>action();flow.Controls.Add(b);};button("新任务采集",Run);button("重试上次任务",()=>RunTask(true));button("人工停止",Stop);button("send 手动补传",Send);button("导出日志到桌面",Export);button("配置接收端",()=>Process.Start("notepad.exe",Store.Config));button("配置授权A6L",()=>{if(!File.Exists(Target.PathName))DurableFile.Json(Target.PathName,new{device_code="",ip="",mac="",authorized=false,empty_ports_user_confirmed=new int[0],empty_ports_confirmed_date=""},false);Process.Start("notepad.exe",Target.PathName);Notice("保存授权设备配置后请重启灰eye");});button("打开采集目录",()=>Process.Start("explorer.exe",Path.Combine(Store.Root,"runs")));button("查看任务与回执",()=>{Directory.CreateDirectory(TaskOperation.TasksRoot);Process.Start("explorer.exe",TaskOperation.TasksRoot);});
