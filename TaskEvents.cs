@@ -22,7 +22,7 @@ sealed class CollectionFailure:IOException {
 }
 
 sealed class TaskOperation {
- public const string Source="grayeye", BusinessProtocol="grayeye.collection.v1",Version="0.2.1-test.20261022";
+ public const string Source="grayeye", BusinessProtocol="grayeye.collection.v1",Version="0.2.2-test.20261022";
  public static string TasksRoot {get{return Path.Combine(Store.Root,"tasks");}}
  readonly object gate=new object();public readonly string Folder,RunId,MachineId;public int Sequence,Attempt;public string Status,Phase;
  readonly bool simulation;Dictionary<string,object> lastCollection;

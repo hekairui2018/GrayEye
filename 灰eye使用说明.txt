@@ -1,4 +1,4 @@
-灰eye 0.2.1-test.20261022 / A6L独立只读采集
+灰eye 0.2.2-test.20261022 / A6L独立只读采集
 
 启动GrayEye.exe显示眼睛悬浮球，无需Python或抓包驱动，使用Windows自带.NET Framework。
 单击：新任务读取本机配置并授权的A6L，网口1卡1；按住拖动；右键进入admin。

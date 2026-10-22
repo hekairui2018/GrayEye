@@ -19,9 +19,9 @@ using System.IO.Compression;
 using System.Reflection;
 
 [assembly:AssemblyTitle("灰eye A6L只读采集助手")]
-[assembly:AssemblyVersion("0.2.1.0")]
-[assembly:AssemblyFileVersion("0.2.1.1022")]
-[assembly:AssemblyInformationalVersion("0.2.1-test.20261022")]
+[assembly:AssemblyVersion("0.2.2.0")]
+[assembly:AssemblyFileVersion("0.2.2.1022")]
+[assembly:AssemblyInformationalVersion("0.2.2-test.20261022")]
 
 static class Store {
  public static readonly string Root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"A6LCollector");
@@ -79,12 +79,14 @@ static class Collect {
 sealed class Ball:Form {
  Image image;Point down,origin;bool moved,busy,closing;NotifyIcon tray;Label state; ToolTip tip=new ToolTip();CancellationTokenSource cancellation;System.Windows.Forms.Timer retryTimer;
  protected override bool ShowWithoutActivation{get{return true;}}
- protected override CreateParams CreateParams{get{var p=base.CreateParams;p.ExStyle|=0x08000080;return p;}}
- public Ball(){Text="灰eye A6L悬浮采集球";FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;Size=new Size(80,80);StartPosition=FormStartPosition.Manual;Location=new Point(Screen.PrimaryScreen.WorkingArea.Right-100,Screen.PrimaryScreen.WorkingArea.Bottom-260);using(var s=Store.Resource("eye.png")) image=new Bitmap(s);using(var s=Store.Resource("app.ico"))Icon=new Icon(s);var path=new GraphicsPath();path.AddEllipse(0,0,80,80);Region=new Region(path);BackgroundImage=image;BackgroundImageLayout=ImageLayout.Stretch;Cursor=Cursors.Hand;
+ protected override CreateParams CreateParams{get{var p=base.CreateParams;p.ExStyle|=0x08080080;return p;}}
+ public Ball(){Text="灰eye A6L悬浮采集球";FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;Size=new Size(LayeredBall.Pixels(80),LayeredBall.Pixels(80));StartPosition=FormStartPosition.Manual;Location=new Point(Screen.PrimaryScreen.WorkingArea.Right-100,Screen.PrimaryScreen.WorkingArea.Bottom-260);using(var s=Store.Resource("eye.png")) image=new Bitmap(s);Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);Cursor=Cursors.Hand;
   var menu=new ContextMenuStrip();menu.Items.Add("新任务：采集A6L网口1 / 卡1",null,(s,e)=>Run());menu.Items.Add("重试上次未完成任务（沿用ID）",null,(s,e)=>RunTask(true));menu.Items.Add("人工停止当前采集",null,(s,e)=>Stop());menu.Items.Add("打开本地采集目录",null,(s,e)=>Process.Start("explorer.exe",Path.Combine(Store.Root,"runs")));menu.Items.Add("admin 管理面板",null,(s,e)=>Admin());menu.Items.Add("send 手动补传任务事件",null,(s,e)=>Send());menu.Items.Add("导出当天日志到桌面",null,(s,e)=>Export());menu.Items.Add("退出",null,(s,e)=>Close());ContextMenuStrip=menu;
   MouseDown+=(s,e)=>{if(e.Button==MouseButtons.Left){down=MousePosition;origin=Location;moved=false;}};MouseMove+=(s,e)=>{if(e.Button==MouseButtons.Left){var delta=new Size(MousePosition.X-down.X,MousePosition.Y-down.Y);if(Math.Abs(delta.Width)+Math.Abs(delta.Height)>5)moved=true;if(moved)Location=origin+delta;}};MouseUp+=(s,e)=>{if(e.Button==MouseButtons.Left&&!moved)Run();};
   tray=new NotifyIcon{Icon=Icon,Text="灰eye：右键管理",Visible=true,ContextMenuStrip=menu};tray.DoubleClick+=(s,e)=>{Show();TopMost=true;};tip.SetToolTip(this,"单击新任务；右键重试 / 停止 / admin / send");FormClosing+=(s,e)=>{if(busy){e.Cancel=true;closing=true;Stop();Notice("正在保存当前任务后退出…");}};FormClosed+=(s,e)=>{retryTimer.Stop();retryTimer.Dispose();tray.Visible=false;tray.Dispose();image.Dispose();};Store.Log("app started "+TaskOperation.Version);retryTimer=new System.Windows.Forms.Timer{Interval=60000};retryTimer.Tick+=(s,e)=>{if(Upload.Auto()&&!busy)Send();};retryTimer.Start();Shown+=(s,e)=>{if(Upload.Auto())Send();};
  }
+ protected override void OnShown(EventArgs e){base.OnShown(e);LayeredBall.Draw(Handle,image,Left,Top,Width,Height);}
+ protected override void OnSizeChanged(EventArgs e){base.OnSizeChanged(e);if(image!=null&&IsHandleCreated&&Visible)LayeredBall.Draw(Handle,image,Left,Top,Width,Height);}
  void Notice(string text){Store.Log(text);if(state!=null&&!state.IsDisposed)state.Text=text;tray.BalloonTipTitle="A6L采集助手";tray.BalloonTipText=text.Length>220?text.Substring(0,220):text;tray.ShowBalloonTip(5000);}
  void Run(){RunTask(false);}
  void Stop(){if(cancellation!=null){cancellation.Cancel();Notice("已请求人工停止，正在保留本次已收数据");}else Notice("当前没有正在执行的硬件采集");}
@@ -96,6 +98,6 @@ sealed class Ball:Form {
 }
 
 static class Program {
- [STAThread]static int Main(string[] args){Store.Init();try{Target.Load();if(args.Length>0&&args[0]=="--selftest")return SelfTest(args.Length>1?args[1]:null);if(args.Length>0&&args[0]=="--collect"){Console.WriteLine(TaskRunner.Execute(TaskOperation.New(),Console.WriteLine,CancellationToken.None));return 0;}bool owned;using(var mutex=new Mutex(true,"Local\\A6LCollector.Test.v1",out owned)){if(!owned)return 0;TaskOperation.Recover();Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Application.Run(new Ball());}return 0;}catch(Exception ex){Store.Log("fatal: "+ex.Message);Console.Error.WriteLine(ex.Message);return 1;}}
+ [STAThread]static int Main(string[] args){Store.Init();try{Target.Load();if(args.Length>0&&args[0]=="--selftest")return SelfTest(args.Length>1?args[1]:null);if(args.Length>0&&args[0]=="--collect"){Console.WriteLine(TaskRunner.Execute(TaskOperation.New(),Console.WriteLine,CancellationToken.None));return 0;}bool owned;using(var mutex=new Mutex(true,"Local\\A6LCollector.Test.v1",out owned)){if(!owned)return 0;TaskOperation.Recover();LayeredBall.EnableDpi();Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Application.Run(new Ball());}return 0;}catch(Exception ex){Store.Log("fatal: "+ex.Message);Console.Error.WriteLine(ex.Message);return 1;}}
  static int SelfTest(string path){if(path==null)throw new ArgumentException("--selftest requires a saved response_*.bin path");var raw=File.ReadAllBytes(path);Collect.Validate(raw);var test=Path.Combine(Store.Root,"selftest");Directory.CreateDirectory(test);var fields=Collect.Decode(raw,test);if(fields.Count!=133)throw new Exception("field count");var broken=(byte[])raw.Clone();broken[19]^=1;bool rejected=false;try{Collect.Validate(broken);}catch(IOException){rejected=true;}if(!rejected)throw new Exception("CRC did not reject");Store.Save(Path.Combine(test,"result.json"),new{success=true,fields=fields.Count,crc_corruption_rejected=true,device_operations=0,values=fields});Console.WriteLine("PASS: 133 fields; CRC rejection; no device or upload operations");return 0;}
 }
