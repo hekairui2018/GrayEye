@@ -30,9 +30,9 @@ sealed class CollectionFailure:IOException {
 }
 
 sealed class TaskOperation {
- public const string Source="grayeye", BusinessProtocol="grayeye.collection.v1",Version="0.2.3-test.20261022";
+ public const string Source="grayeye", BusinessProtocol="grayeye.collection.v1",Version="0.2.4-test.20261022";
  public static string TasksRoot {get{return Path.Combine(Store.Root,"tasks");}}
- readonly object gate=new object();public readonly string Folder,RunId,MachineId;public int Sequence,Attempt;public string Status,Phase;
+ readonly object gate=new object();public readonly string Folder,RunId,MachineId;public int Sequence,Attempt;public string Status,Phase;public string VisibleDirectory,ExportError;
  readonly bool simulation;Dictionary<string,object> lastCollection;
  string LogPath {get{return Path.Combine(Folder,"task.log");}}
  public TaskOperation(string root,string machine,string runId,bool test){Folder=Path.Combine(root,runId);RunId=runId;MachineId=machine;simulation=test;Directory.CreateDirectory(Path.Combine(Folder,"events"));Directory.CreateDirectory(Path.Combine(Folder,"receipts"));var files=Events();Sequence=files.Length==0?0:files.Max(p=>int.Parse(Path.GetFileNameWithoutExtension(p)));string state=Path.Combine(Folder,"state.json");if(DurableFile.Exists(state)){var s=Store.Json.Deserialize<Dictionary<string,object>>(DurableFile.ReadText(state));Attempt=Convert.ToInt32(s["attempt"]);Status=Convert.ToString(s["status"]);Phase=Convert.ToString(s["phase"]);}else{Status="new";Phase="created";SaveState();}if(files.Length>0){var last=Store.Json.Deserialize<Dictionary<string,object>>(DurableFile.ReadText(files.Last()));if(last.ContainsKey("collection"))lastCollection=(Dictionary<string,object>)last["collection"];if(Convert.ToInt32(last["attempt"])==Attempt){Status=Convert.ToString(last["task_state"]);Phase=Convert.ToString(last["node"]);}}}
@@ -70,7 +70,7 @@ sealed class TaskOperation {
 }
 
 static class TaskRunner {
- public static string Execute(TaskOperation task,Action<string> status,CancellationToken cancel){task.StartAttempt();try{string dir=Collect.Run(s=>{task.Progress(s);status(s);},task,cancel);task.Complete(dir);return dir;}catch(CollectionFailure ex){task.Failed(ex.DirectoryPath,ex.Origin,ex.Node,ex.Message);throw;}catch(OperationCanceledException){task.Failed(null,"human","user_stop","用户手动停止");throw;}catch(Exception ex){task.Failed(null,"automation","local_archive_or_journal",ex.Message);throw;}}
+ public static string Execute(TaskOperation task,Action<string> status,CancellationToken cancel){task.StartAttempt();try{string dir=Collect.Run(s=>{task.Progress(s);status(s);},task,cancel);task.Complete(dir);VisibleData.Outcome(task,dir);return dir;}catch(CollectionFailure ex){task.Failed(ex.DirectoryPath,ex.Origin,ex.Node,ex.Message);VisibleData.Outcome(task,ex.DirectoryPath);throw;}catch(OperationCanceledException){task.Failed(null,"human","user_stop","用户手动停止");throw;}catch(Exception ex){task.Failed(null,"automation","local_archive_or_journal",ex.Message);throw;}}
 }
 
 static class TaskDelivery {
